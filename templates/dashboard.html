@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USB HID Safety Dashboard</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
+
+        :root {
+            --bg-1: #0b132b;
+            --bg-2: #1c2541;
+            --card: rgba(255, 255, 255, 0.08);
+            --line: rgba(255, 255, 255, 0.16);
+            --text: #f8fafc;
+            --subtext: #cbd5e1;
+            --accent: #34d399;
+            --accent-2: #38bdf8;
+            --critical: #ef4444;
+            --high: #f97316;
+            --medium: #eab308;
+            --low: #22c55e;
+            --shadow: 0 14px 30px rgba(2, 6, 23, 0.45);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 85% 10%, rgba(56, 189, 248, 0.18), transparent 35%),
+                radial-gradient(circle at 15% 85%, rgba(52, 211, 153, 0.16), transparent 40%),
+                linear-gradient(135deg, var(--bg-1), var(--bg-2));
+            min-height: 100vh;
+            padding: 18px;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            display: grid;
+            gap: 18px;
+        }
+
+        .header {
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 22px;
+            background: linear-gradient(120deg, rgba(15, 23, 42, 0.74), rgba(15, 23, 42, 0.42));
+            box-shadow: var(--shadow);
+            animation: fadeUp 450ms ease;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .title {
+            font-size: clamp(1.3rem, 2.4vw, 2rem);
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .live-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(52, 211, 153, 0.5);
+            color: #86efac;
+            background: rgba(22, 163, 74, 0.18);
+            border-radius: 999px;
+            font-size: 0.85rem;
+            padding: 6px 12px;
+        }
+
+        .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 1.6s ease-in-out infinite;
+        }
+
+        .subtitle {
+            color: var(--subtext);
+            line-height: 1.5;
+            max-width: 72ch;
+            font-size: 0.95rem;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            animation: fadeUp 550ms ease;
+        }
+
+        .status-card,
+        .panel,
+        .explain-card {
+            border: 1px solid var(--line);
+            background: var(--card);
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            box-shadow: var(--shadow);
+        }
+
+        .status-card {
+            padding: 14px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 220ms ease, border-color 220ms ease;
+        }
+
+        .status-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(56, 189, 248, 0.52);
+        }
+
+        .status-card::after {
+            content: attr(data-help);
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            background: rgba(15, 23, 42, 0.96);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 10px;
+            color: #dbeafe;
+            font-size: 0.78rem;
+            line-height: 1.4;
+            padding: 10px;
+            opacity: 0;
+            transform: translateY(8px);
+            pointer-events: none;
+            transition: 180ms ease;
+        }
+
+        .status-card:hover::after,
+        .status-card:focus-within::after {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            color: #a5b4fc;
+            margin-bottom: 8px;
+        }
+
+        .value {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: #e0f2fe;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            animation: fadeUp 700ms ease;
+        }
+
+        button {
+            border: 1px solid rgba(56, 189, 248, 0.5);
+            border-radius: 12px;
+            color: #f8fafc;
+            background: linear-gradient(140deg, rgba(56, 189, 248, 0.22), rgba(15, 23, 42, 0.5));
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 0.86rem;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: transform 180ms ease, background 180ms ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            background: linear-gradient(140deg, rgba(52, 211, 153, 0.32), rgba(15, 23, 42, 0.6));
+        }
+
+        button.danger {
+            border-color: rgba(239, 68, 68, 0.55);
+            background: linear-gradient(140deg, rgba(239, 68, 68, 0.22), rgba(15, 23, 42, 0.5));
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr;
+            gap: 12px;
+            animation: fadeUp 850ms ease;
+        }
+
+        .panel {
+            padding: 16px;
+            min-height: 430px;
+        }
+
+        .panel h2 {
+            font-size: 1.05rem;
+            margin-bottom: 10px;
+            color: #93c5fd;
+        }
+
+        .panel p {
+            color: var(--subtext);
+            margin-bottom: 14px;
+            font-size: 0.86rem;
+            line-height: 1.45;
+        }
+
+        .signal-list {
+            display: grid;
+            gap: 10px;
+            max-height: 350px;
+            overflow: auto;
+            padding-right: 4px;
+        }
+
+        .signal-item {
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 12px;
+            padding: 10px;
+            background: rgba(15, 23, 42, 0.55);
+            transition: border-color 180ms ease, transform 180ms ease;
+        }
+
+        .signal-item:hover {
+            border-color: rgba(56, 189, 248, 0.6);
+            transform: translateX(2px);
+        }
+
+        .signal-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .signal-type {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #a7f3d0;
+        }
+
+        .chip {
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 8px;
+        }
+
+        .chip.LOW { background: rgba(34, 197, 94, 0.2); color: var(--low); }
+        .chip.MEDIUM { background: rgba(234, 179, 8, 0.22); color: var(--medium); }
+        .chip.HIGH { background: rgba(249, 115, 22, 0.2); color: var(--high); }
+        .chip.CRITICAL { background: rgba(239, 68, 68, 0.2); color: var(--critical); }
+
+        .signal-meaning {
+            font-size: 0.8rem;
+            color: #e2e8f0;
+            margin-bottom: 5px;
+            line-height: 1.42;
+        }
+
+        .signal-time {
+            font-size: 0.72rem;
+            color: #94a3b8;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .stat-box {
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 12px;
+            padding: 10px;
+            background: rgba(15, 23, 42, 0.48);
+            min-height: 95px;
+            position: relative;
+        }
+
+        .stat-box::after {
+            content: attr(data-help);
+            position: absolute;
+            left: 8px;
+            right: 8px;
+            bottom: 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.34);
+            background: rgba(15, 23, 42, 0.98);
+            color: #e2e8f0;
+            font-size: 0.72rem;
+            line-height: 1.35;
+            padding: 8px;
+            opacity: 0;
+            transform: translateY(8px);
+            pointer-events: none;
+            transition: 160ms ease;
+        }
+
+        .stat-box:hover::after,
+        .stat-box:focus-within::after {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .stat-label {
+            font-size: 0.74rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #a5b4fc;
+            margin-bottom: 6px;
+        }
+
+        .stat-value {
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: #bae6fd;
+        }
+
+        .explain-card {
+            padding: 16px;
+            animation: fadeUp 1000ms ease;
+        }
+
+        .explain-title {
+            font-size: 1rem;
+            margin-bottom: 8px;
+            color: #99f6e4;
+        }
+
+        .explain-text {
+            line-height: 1.55;
+            color: #e2e8f0;
+            font-size: 0.9rem;
+        }
+
+        .legend {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            color: #cbd5e1;
+            font-size: 0.78rem;
+        }
+
+        .legend span {
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 999px;
+            padding: 4px 8px;
+        }
+
+        .empty-state {
+            border: 1px dashed rgba(148, 163, 184, 0.35);
+            border-radius: 12px;
+            padding: 18px;
+            color: #cbd5e1;
+            text-align: center;
+            line-height: 1.5;
+            font-size: 0.88rem;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.48; transform: scale(0.9); }
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 980px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            body { padding: 12px; }
+            .panel { min-height: 360px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-top">
+                <h1 class="title">USB Safety Dashboard</h1>
+                <div class="live-pill"><span class="dot"></span>Live updates every 2 seconds</div>
+            </div>
+            <p class="subtitle">
+                This page watches for unusual keyboard-like USB behavior. Hover over any box to get a simple explanation
+                of what you are seeing and what it means in plain language.
+            </p>
+        </header>
+
+        <section class="status-grid">
+            <article class="status-card" data-help="Current mode of the system. Idle usually means no urgent threat pattern is active right now.">
+                <div class="label">System Status</div>
+                <div class="value" id="system-status">Ready</div>
+            </article>
+            <article class="status-card" data-help="How many events the system has recorded since startup. More events do not always mean danger.">
+                <div class="label">Total Signals Seen</div>
+                <div class="value" id="total-signals">0</div>
+            </article>
+            <article class="status-card" data-help="How many events were seen recently. A sudden spike can indicate automated activity.">
+                <div class="label">Recent Activity (6s)</div>
+                <div class="value" id="recent-signals">0</div>
+            </article>
+            <article class="status-card" data-help="How long this dashboard session has been running.">
+                <div class="label">Session Uptime</div>
+                <div class="value" id="uptime">0m</div>
+            </article>
+        </section>
+
+        <section class="controls" aria-label="Dashboard actions">
+            <button onclick="addTestSignal()">Add Demo Signal</button>
+            <button onclick="simulateAttack()">Run Demo Attack</button>
+            <button onclick="refreshData()">Refresh Now</button>
+            <button class="danger" onclick="clearAllSignals()">Clear All Signals</button>
+        </section>
+
+        <section class="main-grid">
+            <article class="panel">
+                <h2>What Is Happening Right Now</h2>
+                <p>Latest signals from the detector. Hover each entry to understand it in non-technical words.</p>
+                <div id="signals-container" class="signal-list">
+                    <div class="empty-state">No signals yet. Try <strong>Run Demo Attack</strong> to see example events.</div>
+                </div>
+            </article>
+
+            <article class="panel">
+                <h2>Risk Summary</h2>
+                <p>These counters group events by urgency and behavior patterns.</p>
+                <div class="stats-grid">
+                    <div class="stat-box" data-help="Highest urgency. Usually means multiple suspicious events happened together.">
+                        <div class="stat-label">Critical</div>
+                        <div class="stat-value" id="stat-critical">0</div>
+                    </div>
+                    <div class="stat-box" data-help="Serious warning. Investigate soon, especially if count keeps increasing.">
+                        <div class="stat-label">High</div>
+                        <div class="stat-value" id="stat-high">0</div>
+                    </div>
+                    <div class="stat-box" data-help="Moderate warning. Often an early sign, not always an attack by itself.">
+                        <div class="stat-label">Medium</div>
+                        <div class="stat-value" id="stat-medium">0</div>
+                    </div>
+                    <div class="stat-box" data-help="Low urgency. Usually background or normal-looking behavior.">
+                        <div class="stat-label">Low</div>
+                        <div class="stat-value" id="stat-low">0</div>
+                    </div>
+                    <div class="stat-box" data-help="How many processes the monitor has tracked in this session.">
+                        <div class="stat-label">Tracked Processes</div>
+                        <div class="stat-value" id="stat-processes">0</div>
+                    </div>
+                    <div class="stat-box" data-help="How many keystroke events were collected for behavior analysis.">
+                        <div class="stat-label">Keystrokes Seen</div>
+                        <div class="stat-value" id="stat-keystrokes">0</div>
+                    </div>
+                    <div class="stat-box" data-help="Average typing speed. Very high values can indicate automated typing, not a human.">
+                        <div class="stat-label">Average WPM</div>
+                        <div class="stat-value" id="stat-wpm">0</div>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section class="explain-card">
+            <h3 class="explain-title">Plain-English Explanation</h3>
+            <p class="explain-text" id="live-explain">
+                Hover a metric or signal card to see what it means. If you run the demo attack,
+                you should see USB insertion, suspicious process launch, and fast keystroke signals.
+            </p>
+            <div class="legend">
+                <span>usb_insertion = a new USB keyboard-like device appeared</span>
+                <span>process_launch = a command app or script tool started</span>
+                <span>keystroke_burst = typing happened unusually fast</span>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const REFRESH_MS = 2000;
+
+        const signalTypeHelp = {
+            usb_insertion: 'A new USB input device appeared. This can be normal, but can also be a fake keyboard device.',
+            process_launch: 'A process started. If it is a shell or script tool right after USB insert, risk is higher.',
+            keystroke_burst: 'Typing happened very fast in a short time. This often looks like automated injection.',
+            test_signal: 'This is a demo signal created manually for testing the dashboard flow.'
+        };
+
+        const severityHelp = {
+            LOW: 'Low risk: generally informational. Keep monitoring.',
+            MEDIUM: 'Medium risk: unusual activity. Review context.',
+            HIGH: 'High risk: strong warning. Investigate quickly.',
+            CRITICAL: 'Critical risk: likely coordinated attack pattern. Respond immediately.'
+        };
+
+        const explainEl = document.getElementById('live-explain');
+
+        function setExplain(text) {
+            explainEl.textContent = text;
+        }
+
+        function prettySignalType(type) {
+            return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        function formatTime(ts) {
+            return new Date(ts).toLocaleTimeString();
+        }
+
+        function trimMicroseconds(value) {
+            return (value || '0').split('.')[0];
+        }
+
+        async function fetchJson(url, options) {
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                throw new Error('Request failed: ' + response.status);
+            }
+            return response.json();
+        }
+
+        async function refreshData() {
+            try {
+                const [status, signals, stats] = await Promise.all([
+                    fetchJson('/api/system-status'),
+                    fetchJson('/api/signals?minutes=1'),
+                    fetchJson('/api/statistics')
+                ]);
+
+                updateStatus(status);
+                updateSignals(signals);
+                updateStats(stats);
+            } catch (error) {
+                console.error('Refresh error:', error);
+                setExplain('Dashboard could not refresh right now. Check server connection and try again.');
+            }
+        }
+
+        function updateStatus(data) {
+            const readableStatus = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+            document.getElementById('system-status').textContent = readableStatus;
+            document.getElementById('total-signals').textContent = data.total_signals;
+            document.getElementById('recent-signals').textContent = data.recent_signals;
+            document.getElementById('uptime').textContent = trimMicroseconds(data.uptime);
+        }
+
+        function updateSignals(data) {
+            const container = document.getElementById('signals-container');
+            if (!data.total) {
+                container.innerHTML = '<div class="empty-state">No recent events. This usually means normal behavior right now.</div>';
+                return;
+            }
+
+            const cards = data.signals
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                .slice(0, 12)
+                .map(signal => {
+                    const readableType = prettySignalType(signal.type);
+                    const meaning = signalTypeHelp[signal.type] || 'Event recorded by detector.';
+                    const extraRisk = signal.details && signal.details.risk_reason
+                        ? ' Device note: ' + signal.details.risk_reason + '.'
+                        : '';
+                    const severityMeaning = severityHelp[signal.severity] || 'Risk level unavailable.';
+                    const explainText = readableType + ': ' + meaning + extraRisk + ' ' + severityMeaning;
+                    return `
+                        <article class="signal-item" data-explain="${escapeHtml(explainText)}">
+                            <div class="signal-head">
+                                <div class="signal-type">${readableType}</div>
+                                <span class="chip ${signal.severity}">${signal.severity}</span>
+                            </div>
+                            <div class="signal-meaning">${meaning}${extraRisk}</div>
+                            <div class="signal-time">${formatTime(signal.timestamp)}</div>
+                        </article>
+                    `;
+                })
+                .join('');
+
+            container.innerHTML = cards;
+
+            container.querySelectorAll('.signal-item').forEach(item => {
+                item.addEventListener('mouseenter', () => setExplain(item.dataset.explain));
+                item.addEventListener('focus', () => setExplain(item.dataset.explain));
+            });
+        }
+
+        function updateStats(data) {
+            document.getElementById('stat-critical').textContent = data.signals.severity_distribution.CRITICAL;
+            document.getElementById('stat-high').textContent = data.signals.severity_distribution.HIGH;
+            document.getElementById('stat-medium').textContent = data.signals.severity_distribution.MEDIUM;
+            document.getElementById('stat-low').textContent = data.signals.severity_distribution.LOW;
+            document.getElementById('stat-processes').textContent = data.processes.total_tracked;
+            document.getElementById('stat-keystrokes').textContent = data.keystrokes.total_recorded;
+            document.getElementById('stat-wpm').textContent = Math.round(data.keystrokes.average_wpm || 0);
+        }
+
+        async function addTestSignal() {
+            const severities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+            const randomSeverity = severities[Math.floor(Math.random() * severities.length)];
+            await fetchJson('/api/add-test-signal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'test_signal',
+                    severity: randomSeverity,
+                    details: { created_by: 'dashboard_demo' }
+                })
+            });
+            setExplain('A demo signal was added. This helps you verify that updates and risk counters are working.');
+            refreshData();
+        }
+
+        async function simulateAttack() {
+            await fetchJson('/api/simulate-attack', { method: 'POST' });
+            setExplain('Demo attack created. Watch for multiple event types arriving together with higher risk levels.');
+            refreshData();
+        }
+
+        async function clearAllSignals() {
+            if (confirm('Clear all signals? This removes only the in-memory dashboard list.')) {
+                await fetchJson('/api/clear-signals', { method: 'POST' });
+                setExplain('Signals were cleared. New events will appear automatically as they are detected.');
+                refreshData();
+            }
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        setInterval(refreshData, REFRESH_MS);
+        refreshData();
+    </script>
+</body>
+</html>
