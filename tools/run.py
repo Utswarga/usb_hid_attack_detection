@@ -81,6 +81,24 @@ def install_requirements():
         return False
 
 
+def run_playwright_codegen(url: str = "http://localhost:5000", output_file: str = "tests/generated_playwright_test.py"):
+    """Launch Playwright codegen for the dashboard or any target URL."""
+    print("\n" + "="*80)
+    print("STARTING PLAYWRIGHT CODEGEN")
+    print("="*80 + "\n")
+
+    project_root = get_project_root()
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "codegen", url, "--target=python", "--output", output_file],
+            cwd=str(project_root)
+        )
+    except KeyboardInterrupt:
+        print("\n\n✓ Playwright codegen stopped")
+    except Exception as e:
+        print(f"✗ Error starting Playwright codegen: {e}")
+
+
 def show_menu():
     """Show help menu."""
     print("\n" + "="*80)
@@ -90,6 +108,7 @@ def show_menu():
     print("  python tools/run.py test       → Run comprehensive test suite")
     print("  python tools/run.py dashboard  → Start web dashboard (http://localhost:5000)")
     print("  python tools/run.py install    → Install required packages")
+    print("  python tools/run.py codegen    → Launch Playwright codegen for the dashboard")
     print("  python tools/run.py all        → Run tests then start dashboard")
     print("\n" + "="*80 + "\n")
 
@@ -111,6 +130,10 @@ def main():
     elif command == 'install':
         success = install_requirements()
         sys.exit(0 if success else 1)
+    elif command == 'codegen':
+        url = sys.argv[2] if len(sys.argv) > 2 else "http://localhost:5000"
+        output_file = sys.argv[3] if len(sys.argv) > 3 else "tests/generated_playwright_test.py"
+        run_playwright_codegen(url=url, output_file=output_file)
     elif command == 'all':
         if run_tests():
             print("\n✓ Tests completed successfully. Starting dashboard...\n")
