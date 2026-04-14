@@ -10,16 +10,13 @@ and response engine functionality.
 import sys
 import os
 from pathlib import Path
+from datetime import datetime, timedelta
+import json
+import unittest
 
 # Add parent directory to path so we can import core modules
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
-
-import unittest
-import time
-from datetime import datetime, timedelta
-from unittest.mock import Mock, MagicMock, patch
-import json
 
 from core.detection_engine import DetectionEngine, AttackSignal, AttackSeverity, AttackEvent
 from core.keystroke_analyzer import KeystrokeAnalyzer
@@ -122,36 +119,52 @@ class TestDetectionEngine(unittest.TestCase):
         logger.info("✓ Pico USB event tagging test passed")
 
     def test_pico_rubber_ducky_correlation(self):
-        """Test Pico + process + keystroke maps to Pico Rubber Ducky attack."""
-        self.engine.add_signal(
-            AttackSignal(
-                signal_type="usb_insertion",
-                severity=AttackSeverity.HIGH,
-                timestamp=datetime.now(),
-                details={"is_pico_like": True, "risk_reason": "Pico fingerprint"},
-            )
+        """Test Pico + process + keystroke maps to Pico Rubber Ducky attack.
+        
+        This test validates the correlation engine detects the complete attack pattern:
+        1. USB insertion event with Pico-like fingerprint
+        2. Suspicious process launch (powershell.exe)
+        3. Automated keystroke burst (abnormal typing speed)
+        """
+        # Stage 1: USB Pico-like device insertion
+        usb_signal = AttackSignal(
+            signal_type="usb_insertion",
+            severity=AttackSeverity.HIGH,
+            timestamp=datetime.now(),
+            details={"is_pico_like": True, "risk_reason": "Pico fingerprint"},
         )
-        self.engine.add_signal(
-            AttackSignal(
-                signal_type="process_launch",
-                severity=AttackSeverity.HIGH,
-                timestamp=datetime.now(),
-                details={"process_name": "powershell.exe", "pid": 4242},
-            )
+        self.engine.add_signal(usb_signal)
+        self.assertEqual(len(self.engine.signal_history), 1)
+        
+        # Stage 2: Suspicious process launch
+        process_signal = AttackSignal(
+            signal_type="process_launch",
+            severity=AttackSeverity.HIGH,
+            timestamp=datetime.now(),
+            details={"process_name": "powershell.exe", "pid": 4242},
         )
-        self.engine.add_signal(
-            AttackSignal(
-                signal_type="keystroke_burst",
-                severity=AttackSeverity.CRITICAL,
-                timestamp=datetime.now(),
-                details={"wpm": 190},
-            )
+        self.engine.add_signal(process_signal)
+        self.assertEqual(len(self.engine.signal_history), 2)
+        
+        # Stage 3: Abnormal keystroke injection pattern
+        keystroke_signal = AttackSignal(
+            signal_type="keystroke_burst",
+            severity=AttackSeverity.CRITICAL,
+            timestamp=datetime.now(),
+            details={"wpm": 190},  # Abnormally high typing speed
         )
+        self.engine.add_signal(keystroke_signal)
+        self.assertEqual(len(self.engine.signal_history), 3)
 
+        # Correlate signals and verify attack detection
         attack = self.engine.correlate_signals()
-        self.assertIsNotNone(attack)
-        self.assertEqual(attack.attack_type, "PICO_RUBBER_DUCKY_ATTACK")
-        self.assertEqual(attack.severity, AttackSeverity.CRITICAL)
+        self.assertIsNotNone(attack, "Attack correlation should detect the pattern")
+        
+        # Type guard: confirm attack is not None before accessing attributes
+        if attack is not None:
+            self.assertEqual(attack.attack_type, "PICO_RUBBER_DUCKY_ATTACK")
+            self.assertEqual(attack.severity, AttackSeverity.CRITICAL)
+        
         logger.info("✓ Pico Rubber Ducky correlation test passed")
 
     def test_usb_strict_denylist_policy(self):
@@ -422,7 +435,7 @@ class TestResultsExportation(unittest.TestCase):
         logger.info("✓ Results exportation test passed")
 
 
-def run_all_tests():
+def run_all_tests() -> unittest.TestResult:
     """Run all tests and return results."""
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
@@ -441,15 +454,8 @@ def run_all_tests():
     return result
 
 
-if __name__ == "__main__":
-    logger.info("Starting USB HID Attack Detection System Tests...")
-    print("\n" + "="*80)
-    print("USB HID ATTACK DETECTION SYSTEM - TEST SUITE")
-    print("="*80 + "\n")
-
-    result = run_all_tests()
-
-    # Print summary
+def print_test_summary(result: unittest.TestResult) -> None:
+    """Print formatted test results summary."""
     print("\n" + "="*80)
     print("TEST SUMMARY")
     print("="*80)
@@ -463,3 +469,13 @@ if __name__ == "__main__":
         print("✓ All tests passed!")
     else:
         print("✗ Some tests failed. See details above.")
+
+
+if __name__ == "__main__":
+    logger.info("Starting USB HID Attack Detection System Tests...")
+    print("\n" + "="*80)
+    print("USB HID ATTACK DETECTION SYSTEM - TEST SUITE")
+    print("="*80 + "\n")
+
+    result = run_all_tests()
+    print_test_summary(result)
