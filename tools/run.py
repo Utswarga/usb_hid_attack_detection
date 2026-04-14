@@ -12,6 +12,7 @@ Usage:
 import subprocess
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 
@@ -60,6 +61,15 @@ def run_dashboard():
         print(f"✗ Error starting dashboard: {e}")
 
 
+def is_url_reachable(url: str, timeout: int = 5) -> bool:
+    """Return True if the given URL is reachable over HTTP."""
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            return 200 <= response.status < 400
+    except Exception:
+        return False
+
+
 def install_requirements():
     """Install required packages."""
     print("\n" + "="*80)
@@ -82,12 +92,39 @@ def install_requirements():
 
 
 def run_playwright_codegen(url: str = "http://localhost:5000", output_file: str = "tests/generated_playwright_test.py"):
-    """Launch Playwright codegen for the dashboard or any target URL."""
+    """Launch Playwright codegen for the dashboard or any target URL.
+    
+    Auto-starts the dashboard if the target URL is unreachable.
+    """
     print("\n" + "="*80)
     print("STARTING PLAYWRIGHT CODEGEN")
     print("="*80 + "\n")
 
     project_root = get_project_root()
+    dashboard_file = project_root / "tools" / "dashboard.py"
+    server_process = None
+
+    if not is_url_reachable(url):
+        print(f"URL {url} is not reachable. Starting the dashboard server first...")
+        server_process = subprocess.Popen(
+            [sys.executable, str(dashboard_file)],
+            cwd=str(project_root),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            if is_url_reachable(url):
+                break
+            time.sleep(0.5)
+
+        if not is_url_reachable(url):
+            print(f"✗ Could not reach {url} after starting dashboard.")
+            if server_process:
+                server_process.terminate()
+            return
+
     try:
         subprocess.run(
             [sys.executable, "-m", "playwright", "codegen", url, "--target=python", "--output", output_file],
@@ -97,6 +134,9 @@ def run_playwright_codegen(url: str = "http://localhost:5000", output_file: str 
         print("\n\n✓ Playwright codegen stopped")
     except Exception as e:
         print(f"✗ Error starting Playwright codegen: {e}")
+    finally:
+        if server_process:
+            server_process.terminate()
 
 
 def show_menu():
