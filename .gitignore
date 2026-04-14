@@ -6,6 +6,7 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
 ENV/
 build/
 develop-eggs/
@@ -22,22 +23,44 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytype/
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
 # IDE
 .vscode/
+.vscode/settings.json
+.vscode/launch.json
 .idea/
 *.swp
 *.swo
 *~
-.DS_Store
+*.sublime-project
+*.sublime-workspace
 
-# Project specific
+# OS
+Thumbs.db
+.DS_Store
+*.lnk
+.env
+.env.local
+.env.*.local
+.venv.local
 logs/
 *.log
 .pytest_cache/
 .coverage
 htmlcov/
+tests/generated_playwright_test.py
+tests/__pycache__/
+.playwright/
 
-# OS
-Thumbs.db
-.DS_Store
+# Optional temporary files
+*.tmp
+*.bak
+*.swp~
+debug.log
+*.prof
+.ipynb_checkpoints/
+
