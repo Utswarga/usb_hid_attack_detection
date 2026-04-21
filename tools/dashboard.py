@@ -25,8 +25,8 @@ logger = StructuredLogger(__name__)
 # Initialize Flask app
 app = Flask(
     __name__,
-    template_folder='../templates',
-    static_folder='../templates'
+    template_folder=str(project_root / 'templates'),
+    static_folder=str(project_root / 'templates')
 )
 app.config['JSON_SORT_KEYS'] = False
 
@@ -44,7 +44,15 @@ dashboard_state = {
 @app.route('/')
 def index():
     """Main dashboard page."""
-    return render_template('dashboard.html')
+    try:
+        print("Rendering dashboard.html")
+        with open(project_root / 'templates' / 'dashboard.html', 'r') as f:
+            html = f.read()
+        print(f"HTML length: {len(html)}")
+        return html
+    except Exception as e:
+        print(f"Error: {e}")
+        return f"Error: {e}", 500
 
 
 @app.route('/api/system-status')
@@ -211,7 +219,7 @@ def health_check():
     })
 
 
-def start_dashboard(host='127.0.0.1', port=5000, debug=False):
+def start_dashboard(host='127.0.0.1', port=5001, debug=False):
     """Start the Flask dashboard server."""
     logger.info(f"Starting dashboard on {host}:{port}")
     app.run(host=host, port=port, debug=debug)
@@ -221,7 +229,7 @@ if __name__ == '__main__':
     print("\n" + "="*80)
     print("USB HID ATTACK DETECTION - DASHBOARD SERVER")
     print("="*80)
-    print("\n🌐 Dashboard available at: http://localhost:5000")
+    print("\n🌐 Dashboard available at: http://localhost:5001")
     print("\n📊 API endpoints:")
     print("   - GET  /api/system-status     → Current system status")
     print("   - GET  /api/signals           → All signals with filtering")

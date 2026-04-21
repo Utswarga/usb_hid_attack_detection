@@ -19,9 +19,21 @@ def dashboard_server():
 
     # Start the Flask server
     server = subprocess.Popen([sys.executable, str(dashboard_script)])
-    time.sleep(3)  # Wait for server to start
+    
+    # Wait for server to be ready
+    import urllib.request
+    for _ in range(20):
+        try:
+            with urllib.request.urlopen("http://localhost:5001/api/health", timeout=1) as response:
+                if response.status == 200:
+                    break
+        except:
+            pass
+        time.sleep(0.5)
+    else:
+        raise RuntimeError("Server did not start")
 
-    yield "http://localhost:5000"
+    yield "http://localhost:5001"
 
     # Cleanup
     server.terminate()
@@ -31,6 +43,7 @@ def dashboard_server():
 def test_dashboard_page_load(dashboard_server, page):
     """Test that the dashboard page loads correctly."""
     page.goto(dashboard_server)
+    page.wait_for_load_state('networkidle')
 
     # Check page title
     assert page.title() == "USB HID Safety Dashboard"

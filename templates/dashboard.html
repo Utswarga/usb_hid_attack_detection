@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>USB HID Safety Dashboard</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
-
         :root {
             --bg-1: #0b132b;
             --bg-2: #1c2541;
@@ -566,6 +564,15 @@
             document.getElementById('uptime').textContent = trimMicroseconds(data.uptime);
         }
 
+        function escapeHtml(text) {
+            return text
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
         function updateSignals(data) {
             const container = document.getElementById('signals-container');
             if (!data.total) {
@@ -645,13 +652,6 @@
             }
         }
 
-        function escapeHtml(text) {
-            return text
-                .replaceAll('&', '&amp;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;')
-                .replaceAll('"', '&quot;')
-                .replaceAll("'", '&#039;');
         }
 
         setInterval(refreshData, REFRESH_MS);
